@@ -17,4 +17,4 @@ Paid sale lines retain names/prices even when product data changes. Repair billi
 
 ## Checks
 
-Local: 18 PHP tests / 83 assertions, Pint, TypeScript/build, four Chrome browser scenarios (cash receipt/mobile, inventory adjustment, full repair payment/delivery and technician restrictions). GitHub CI additionally runs the PHP suite on PostgreSQL and a real two-process stock race: two cashiers, one item, exactly one successful sale.
+Local: 18 PHP tests / 83 assertions, Pint, TypeScript/build, four Chrome browser scenarios (cash receipt/mobile, inventory adjustment, full repair payment/delivery and technician restrictions). GitHub CI is configured to run the PHP suite on PostgreSQL and a real two-process stock race: two cashiers, one item, exactly one successful sale. The first remote run is pending approval to publish the source; PostgreSQL/concurrency checks have not yet run locally.
