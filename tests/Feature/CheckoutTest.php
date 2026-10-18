@@ -34,7 +34,7 @@ class CheckoutTest extends TestCase
         $p = $this->product();
         $data = $this->payload($p);
         $data['items'][0]['unit_satang'] = 1;
-        $this->actingAs($this->cashier())->post('/checkout', $data)->assertRedirect('/sales/1');
+        $this->actingAs($this->cashier())->post('/checkout', $data)->assertRedirect('/sales/'.Sale::sole()->id);
         $sale = Sale::firstOrFail();
         $this->assertSame(31800, $sale->total_satang);
         $this->assertSame(18200, $sale->change_satang);
@@ -50,8 +50,8 @@ class CheckoutTest extends TestCase
         $p = $this->product();
         $data = $this->payload($p);
         $this->actingAs($this->cashier());
-        $this->post('/checkout', $data)->assertRedirect('/sales/1');
-        $this->post('/checkout', $data)->assertRedirect('/sales/1');
+        $this->post('/checkout', $data)->assertRedirect('/sales/'.Sale::sole()->id);
+        $this->post('/checkout', $data)->assertRedirect('/sales/'.Sale::sole()->id);
         $this->assertDatabaseCount('sales', 1);
         $this->assertDatabaseCount('stock_movements', 1);
         $this->assertSame(3, $p->fresh()->stock);
@@ -93,7 +93,7 @@ class CheckoutTest extends TestCase
     public function test_exact_transfer_has_no_change(): void
     {
         $p = $this->product();
-        $this->actingAs($this->cashier())->post('/checkout', $this->payload($p, ['method' => 'transfer', 'tendered_satang' => 31800]))->assertRedirect('/sales/1');
+        $this->actingAs($this->cashier())->post('/checkout', $this->payload($p, ['method' => 'transfer', 'tendered_satang' => 31800]))->assertRedirect('/sales/'.Sale::sole()->id);
         $this->assertSame(0, Sale::first()->change_satang);
     }
 

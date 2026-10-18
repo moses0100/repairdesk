@@ -52,7 +52,7 @@ jobs:
           DB_USERNAME: postgres
           DB_PASSWORD: repairdesk_ci_only
         run: |
-          php artisan test --configuration=phpunit.pg.xml --compact
+          vendor/bin/phpunit --configuration=phpunit.pg.xml
           php artisan migrate:fresh --force
           php tests/concurrency.php
       - run: php artisan migrate --seed --force

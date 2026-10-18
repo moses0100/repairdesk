@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Repair;
+use App\Models\Sale;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -40,7 +41,7 @@ class RepairTest extends TestCase
         $job->update(['status' => 'ready', 'price_satang' => 100000]);
         $this->actingAs(User::factory()->create(['role' => 'cashier']));
         $payload = ['idempotency_key' => (string) Str::uuid(), 'items' => [], 'repair_id' => $job->id, 'method' => 'cash', 'tendered_satang' => 100000];
-        $this->post('/checkout', $payload)->assertRedirect('/sales/1');
+        $this->post('/checkout', $payload)->assertRedirect('/sales/'.Sale::sole()->id);
         $payload['idempotency_key'] = (string) Str::uuid();
         $this->post('/checkout', $payload)->assertSessionHasErrors('checkout');
         $this->assertDatabaseCount('sales', 1);
