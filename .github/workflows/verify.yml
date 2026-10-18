@@ -1,0 +1,69 @@
+name: Verify RepairDesk
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      APP_ENV: local
+      APP_URL: http://127.0.0.1:8005
+      DB_CONNECTION: sqlite
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: repairdesk_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: repairdesk_ci_only
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pdo_sqlite, pdo_pgsql, mbstring, intl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: cp .env.example .env && touch database/database.sqlite
+      - run: composer install --no-interaction --prefer-dist
+      - run: php artisan key:generate
+      - run: vendor/bin/pint --test
+      - run: php artisan test --compact
+      - run: npm ci && npm run build
+      - name: PostgreSQL tests and concurrent checkout
+        env:
+          APP_ENV: testing
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: repairdesk_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: repairdesk_ci_only
+        run: |
+          php artisan test --configuration=phpunit.pg.xml --compact
+          php artisan migrate:fresh --force
+          php tests/concurrency.php
+      - run: php artisan migrate --seed --force
+      - run: npx playwright install --with-deps chromium
+      - name: Browser workflow checks
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8005 > /tmp/repairdesk.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID"' EXIT
+          for i in {1..30}; do if curl -fsS http://127.0.0.1:8005/up > /dev/null; then break; fi; sleep 1; done
+          npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure
+          path: test-results/
