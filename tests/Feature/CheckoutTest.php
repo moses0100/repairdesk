@@ -135,6 +135,6 @@ class CheckoutTest extends TestCase
     {
         $p = $this->product();
         $this->actingAs($this->cashier())->post('/products', [])->assertForbidden();
-        $this->post('/products/'.$p->id.'/adjust',['delta' => 1, 'reason' => 'รับสินค้า'])->assertForbidden();
+        $this->post('/products/'.$p->id.'/adjust', ['delta' => 1, 'reason' => 'รับสินค้า'])->assertForbidden();
     }
 }

@@ -28,7 +28,7 @@ class Checkout
                     $this->fail('คำขอชำระเดิมมีข้อมูลต่างกัน กรุณาเริ่มรายการใหม่');
                 }
 
-return $existing;
+                return $existing;
             }
             $products = Product::whereIn('id', array_column($items, 'product_id'))->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             $lines = [];
