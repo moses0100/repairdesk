@@ -39,6 +39,8 @@ jobs:
       - run: php artisan key:generate
       - run: vendor/bin/pint --test
       - run: php artisan test --compact
+        env:
+          APP_ENV: testing
       - run: npm ci && npm run build
       - name: PostgreSQL tests and concurrent checkout
         env:
