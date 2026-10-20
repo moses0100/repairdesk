@@ -57,6 +57,33 @@ class RepairTest extends TestCase
         $this->assertSame('diagnosing', $job->fresh()->status);
     }
 
+    public function test_string_versions_update_current_work_and_reject_stale_or_invalid_values(): void
+    {
+        $job = $this->job();
+        $this->actingAs(User::factory()->create(['role' => 'manager']));
+        $this->post('/repairs/'.$job->id, ['version' => '0', 'status' => 'diagnosing'])
+            ->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertSame('diagnosing', $job->fresh()->status);
+        $this->assertSame(1, $job->fresh()->version);
+        $this->assertSame(1, $job->events()->count());
+
+        $this->post('/repairs/'.$job->id, ['version' => '0', 'status' => 'cancelled'])
+            ->assertSessionHasErrors('repair');
+        foreach (['1.5', 'invalid', '-1'] as $version) {
+            $this->post('/repairs/'.$job->id, ['version' => $version, 'status' => 'cancelled'])
+                ->assertSessionHasErrors('version');
+        }
+        $this->assertSame('diagnosing', $job->fresh()->status);
+        $this->assertSame(1, $job->fresh()->version);
+        $this->assertSame(1, $job->events()->count());
+
+        $this->post('/repairs/'.$job->id, ['version' => '1', 'status' => 'waiting_parts'])
+            ->assertRedirect();
+        $this->assertSame('waiting_parts', $job->fresh()->status);
+        $this->assertSame(2, $job->fresh()->version);
+        $this->assertSame(2, $job->events()->count());
+    }
+
     public function test_technician_only_sees_assigned_jobs_and_cannot_change_prices(): void
     {
         $job = $this->job();

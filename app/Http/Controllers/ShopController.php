@@ -114,7 +114,7 @@ class ShopController extends Controller
         $data = $r->validate(['version' => 'required|integer|min:0', 'status' => ['required', Rule::in(['received', 'diagnosing', 'waiting_parts', 'ready', 'delivered', 'cancelled'])], 'note' => 'nullable|string|max:1000', 'price_satang' => [$tech ? 'prohibited' : 'nullable', 'integer', 'min:1', 'max:1000000000']]);
         DB::transaction(function () use ($r, $repair, $data, $tech) {
             $job = Repair::whereKey($repair->id)->lockForUpdate()->firstOrFail();
-            if ($job->version !== $data['version']) {
+            if ($job->version !== (int) $data['version']) {
                 throw ValidationException::withMessages(['repair' => 'งานเปลี่ยนแล้ว กรุณาโหลดใหม่']);
             }
             $map = ['received' => ['diagnosing', 'cancelled'], 'diagnosing' => ['waiting_parts', 'ready', 'cancelled'], 'waiting_parts' => ['diagnosing', 'ready', 'cancelled'], 'ready' => ['diagnosing', 'delivered', 'cancelled'], 'delivered' => [], 'cancelled' => []];
