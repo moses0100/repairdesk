@@ -61,6 +61,8 @@ node scripts/checkpoint.mjs my-checkpoint
 php artisan repairdesk:backup-data
 ```
 
+ชื่อ checkpoint ต้องไม่ซ้ำกับ archive, manifest หรือ Git tag เดิม หากพบชื่อซ้ำคำสั่งจะหยุดก่อนเขียนไฟล์ ให้เลือกชื่อใหม่เพื่อเก็บสำรองเดิมไว้ ทดสอบกฎนี้แยกจากฐานข้อมูลได้ด้วย `npm run test:scripts` โดยชุดทดสอบใช้ Git repo ชั่วคราว และ CI รันให้อัตโนมัติ
+
 คำสั่งแรกสร้าง source archive และ SHA-256 manifest ใน `backups/` พร้อม Git tag ไม่มี `.env`, dependencies หรือฐานข้อมูล คำสั่งที่สองสร้าง SQLite snapshot ที่สอดคล้องกันใน `storage/app/private/backups/` ซึ่งไม่ขึ้น GitHub และมีข้อมูลส่วนตัวของร้าน สำหรับ PostgreSQL ใช้ `pg_dump` แยกต่างหาก
 
 กู้โค้ดโดยแตก archive ลงโฟลเดอร์ใหม่ ตรวจ SHA-256 ติดตั้ง dependencies และสร้าง `.env`/app key ใหม่ หรือสร้าง branch จาก checkpoint tag หลีกเลี่ยง reset ทับงานปัจจุบัน กู้ SQLite โดยหยุด server และคัดลอก snapshot ไปยังไฟล์ฐานข้อมูลของสำเนาใหม่ก่อนตรวจยอด/จำนวนรายการ ไม่ทับฐานข้อมูลที่กำลังใช้งาน
