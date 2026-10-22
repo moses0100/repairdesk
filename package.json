@@ -11,6 +11,7 @@
     "build": "tsc --noEmit && vite build",
     "dev": "vite --host 127.0.0.1",
     "test:e2e": "playwright test",
+    "test:scripts": "node --test tests/scripts/*.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
