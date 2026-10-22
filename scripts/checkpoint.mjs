@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,12 +17,15 @@ const git = (...args) =>
 if (git("status", "--porcelain"))
     throw new Error("Commit working changes before creating a checkpoint");
 const archive = path.join(root, "backups", `${name}.tar`);
+const tag = `checkpoint/${name}`;
+// Reject all existing artifacts before git archive can overwrite the backup.
+if (existsSync(archive) || existsSync(`${archive}.json`) || git("tag", "--list", tag))
+    throw new Error("Checkpoint name already exists; choose a new name");
 mkdirSync(path.dirname(archive), { recursive: true });
 git("archive", "--format=tar", `--output=${archive}`, "HEAD");
 const checksum = createHash("sha256")
     .update(readFileSync(archive))
     .digest("hex");
-const tag = `checkpoint/${name}`;
 git("tag", tag);
 writeFileSync(
     `${archive}.json`,
