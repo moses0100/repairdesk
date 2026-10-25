@@ -15,7 +15,13 @@ class Checkout
     public function pay(User $actor, array $data): Sale
     {
         abort_unless(in_array($actor->role, ['manager', 'cashier']), 403);
-        $items = collect($data['items'] ?? [])->sortBy('product_id')->values()->all();
+        // Hash validated business values, not transport types or ignored client fields.
+        $data['tendered_satang'] = (int) $data['tendered_satang'];
+        $data['repair_id'] = isset($data['repair_id']) ? (int) $data['repair_id'] : null;
+        $items = collect($data['items'] ?? [])->map(fn (array $item) => [
+            'product_id' => (int) $item['product_id'],
+            'quantity' => (int) $item['quantity'],
+        ])->sortBy('product_id')->values()->all();
         $payload = ['items' => $items, 'repair_id' => $data['repair_id'] ?? null, 'method' => $data['method'], 'tendered_satang' => $data['tendered_satang']];
         $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
 

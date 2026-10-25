@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Product;
+use App\Models\Repair;
 use App\Models\Sale;
 use App\Models\StockMovement;
 use App\Models\User;
@@ -55,6 +56,45 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseCount('sales', 1);
         $this->assertDatabaseCount('stock_movements', 1);
         $this->assertSame(3, $p->fresh()->stock);
+    }
+
+    public function test_semantically_identical_retry_accepts_numeric_strings_and_reordered_items(): void
+    {
+        $first = $this->product();
+        $second = $this->product();
+        $data = $this->payload($first, ['tendered_satang' => 100000]);
+        $data['items'][] = ['product_id' => $second->id, 'quantity' => 2];
+        $this->actingAs($this->cashier())->post('/checkout', $data)->assertSessionHasNoErrors();
+        $sale = Sale::sole();
+        $retry = $data;
+        $retry['tendered_satang'] = '100000';
+        $retry['items'] = [
+            ['quantity' => '2', 'product_id' => (string) $second->id, 'unit_satang' => 1],
+            ['quantity' => '2', 'product_id' => (string) $first->id],
+        ];
+        $this->post('/checkout', $retry)->assertSessionHasNoErrors()->assertRedirect('/sales/'.$sale->id);
+        $retry['items'][0]['quantity'] = '3';
+        $this->post('/checkout', $retry)->assertSessionHasErrors('checkout');
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertDatabaseCount('sale_lines', 2);
+        $this->assertDatabaseCount('stock_movements', 2);
+        $this->assertSame(3, $first->fresh()->stock);
+        $this->assertSame(3, $second->fresh()->stock);
+        $this->assertSame(63600, $sale->total_satang);
+    }
+
+    public function test_repair_payment_retry_accepts_a_validated_string_repair_id(): void
+    {
+        $repair = Repair::create(['customer_name' => 'ลูกค้าทดสอบ', 'phone' => '0800000000', 'device' => 'มือถือ', 'issue' => 'หน้าจอเสีย', 'status' => 'ready', 'price_satang' => 10000]);
+        $data = ['idempotency_key' => (string) Str::uuid(), 'items' => [], 'repair_id' => $repair->id, 'method' => 'cash', 'tendered_satang' => 10000];
+        $this->actingAs($this->cashier())->post('/checkout', $data)->assertSessionHasNoErrors();
+        $sale = Sale::sole();
+        $data['repair_id'] = (string) $repair->id;
+        $data['tendered_satang'] = '10000';
+        $this->post('/checkout', $data)->assertSessionHasNoErrors()->assertRedirect('/sales/'.$sale->id);
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertDatabaseCount('sale_lines', 1);
+        $this->assertSame(1, $repair->events()->count());
     }
 
     public function test_reusing_key_with_different_payload_is_rejected(): void
