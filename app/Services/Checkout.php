@@ -29,8 +29,12 @@ class Checkout
         return DB::transaction(function () use ($actor, $data, $items, $hash) {
             // Serialize retries by cashier; product locks use a stable order across cashiers.
             User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
-            // Also match UUIDs stored with uppercase letters by earlier versions.
-            $existing = Sale::where('cashier_id', $actor->id)->whereRaw('LOWER(idempotency_key) = ?', [$data['idempotency_key']])->first();
+            // SQLite stores UUIDs as text; PostgreSQL UUID equality already ignores case.
+            $existing = Sale::where('cashier_id', $actor->id)->when(
+                DB::connection()->getDriverName() === 'sqlite',
+                fn ($query) => $query->whereRaw('LOWER(idempotency_key) = ?', [$data['idempotency_key']]),
+                fn ($query) => $query->where('idempotency_key', $data['idempotency_key']),
+            )->first();
             if ($existing) {
                 if (! hash_equals($existing->request_hash, $hash)) {
                     $this->fail('คำขอชำระเดิมมีข้อมูลต่างกัน กรุณาเริ่มรายการใหม่');
