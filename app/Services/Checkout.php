@@ -15,6 +15,7 @@ class Checkout
     public function pay(User $actor, array $data): Sale
     {
         abort_unless(in_array($actor->role, ['manager', 'cashier']), 403);
+        $data['idempotency_key'] = strtolower($data['idempotency_key']);
         // Hash validated business values, not transport types or ignored client fields.
         $data['tendered_satang'] = (int) $data['tendered_satang'];
         $data['repair_id'] = isset($data['repair_id']) ? (int) $data['repair_id'] : null;
@@ -28,7 +29,8 @@ class Checkout
         return DB::transaction(function () use ($actor, $data, $items, $hash) {
             // Serialize retries by cashier; product locks use a stable order across cashiers.
             User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
-            $existing = Sale::where('cashier_id', $actor->id)->where('idempotency_key', $data['idempotency_key'])->first();
+            // Also match UUIDs stored with uppercase letters by earlier versions.
+            $existing = Sale::where('cashier_id', $actor->id)->whereRaw('LOWER(idempotency_key) = ?', [$data['idempotency_key']])->first();
             if ($existing) {
                 if (! hash_equals($existing->request_hash, $hash)) {
                     $this->fail('คำขอชำระเดิมมีข้อมูลต่างกัน กรุณาเริ่มรายการใหม่');

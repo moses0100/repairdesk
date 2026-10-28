@@ -9,6 +9,7 @@ use App\Models\StockMovement;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class CheckoutTest extends TestCase
@@ -95,6 +96,44 @@ class CheckoutTest extends TestCase
         $this->assertDatabaseCount('sales', 1);
         $this->assertDatabaseCount('sale_lines', 1);
         $this->assertSame(1, $repair->events()->count());
+    }
+
+    public static function uuidCaseOrders(): array
+    {
+        return [[false], [true]];
+    }
+
+    #[DataProvider('uuidCaseOrders')]
+    public function test_uuid_case_changes_do_not_charge_twice(bool $uppercaseFirst): void
+    {
+        $product = $this->product();
+        $key = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+        $data = $this->payload($product, ['idempotency_key' => $uppercaseFirst ? strtoupper($key) : $key]);
+        $this->actingAs($this->cashier())->post('/checkout', $data)->assertSessionHasNoErrors();
+        $sale = Sale::sole();
+        $this->assertSame($key, $sale->idempotency_key);
+        $data['idempotency_key'] = $uppercaseFirst ? $key : strtoupper($key);
+        $this->post('/checkout', $data)->assertSessionHasNoErrors()->assertRedirect('/sales/'.$sale->id);
+        $data['tendered_satang'] = 60000;
+        $this->post('/checkout', $data)->assertSessionHasErrors('checkout');
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertDatabaseCount('sale_lines', 1);
+        $this->assertDatabaseCount('stock_movements', 1);
+        $this->assertSame(3, $product->fresh()->stock);
+    }
+
+    public function test_legacy_uppercase_payment_keys_are_still_found_on_retry(): void
+    {
+        $product = $this->product();
+        $data = $this->payload($product, ['idempotency_key' => 'abcdefab-cdef-4abc-8def-abcdefabcdef']);
+        $this->actingAs($this->cashier())->post('/checkout', $data)->assertSessionHasNoErrors();
+        $sale = Sale::sole();
+        // Older versions stored the validated UUID without canonicalizing its case.
+        $sale->forceFill(['idempotency_key' => strtoupper($data['idempotency_key'])])->save();
+        $this->post('/checkout', $data)->assertSessionHasNoErrors()->assertRedirect('/sales/'.$sale->id);
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertDatabaseCount('stock_movements', 1);
+        $this->assertSame(3, $product->fresh()->stock);
     }
 
     public function test_reusing_key_with_different_payload_is_rejected(): void
